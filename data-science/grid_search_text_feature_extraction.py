@@ -83,7 +83,8 @@ class TextClassifier():
 
     def set_categories(self, categories_list=None):
         '''
-        categories_list : list of string categories to include from dataset
+        Define categories to include from dataset
+        categories_list : list of string categories
         '''
         if categories_list == None:
             self.categories = [
@@ -94,9 +95,10 @@ class TextClassifier():
             # TODO: Add validation
             self.categories = categories_list
 
-    def load_data(self):
+    def load_data(self, data=None):
         '''
-        load our dataset, currently hardcoded
+        load our dataset
+        data : of type <class 'sklearn.utils.Bunch'>
         '''
 
         if self.categories == None:
@@ -105,10 +107,14 @@ class TextClassifier():
         print("Loading 20 newsgroups dataset for categories:")
         print(self.categories)
 
-        self.data = fetch_20newsgroups(subset='train', categories=self.categories)
+        if data == None:
+            self.data = fetch_20newsgroups(subset='train', categories=self.categories)
+        else:
+            self.data = data
         print("%d documents" % len(self.data.filenames))
         print("%d categories" % len(self.data.target_names))
         print()
+        print(type(self.data))
 
 
     def define_pipeline(self, steps=None):
@@ -129,7 +135,7 @@ class TextClassifier():
         else:
             # TODO: add validation
             self.pipeline = steps
-        print(type(self.pipeline.steps))
+
 
     def set_parameters(self, parameters=None):
         '''
