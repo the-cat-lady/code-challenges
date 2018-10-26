@@ -11,7 +11,8 @@ classification example.
 You can adjust the number of categories by giving their names to the dataset
 loader or setting them to None to get the 20 of them.
 
-Here is a sample output of a run on a quad-core machine::
+Here is a sample output of a run on a quad-core machine when passing in
+verbose=True in main()::
 
   Loading 20 newsgroups dataset for categories:
   ['alt.atheism', 'talk.religion.misc']
@@ -49,6 +50,10 @@ Here is a sample output of a run on a quad-core machine::
 
 from __future__ import print_function
 
+# Suppress FutureWarning for some environments
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 from pprint import pprint
 from time import time
 import logging
@@ -66,65 +71,125 @@ print(__doc__)
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 
+class TextClassifier():
 
-###############################################################################
-# Load some categories from the training set
-categories = [
-    'alt.atheism',
-    'talk.religion.misc',
-]
-# Uncomment the following to do the analysis on all the categories
-#categories = None
+    def __init__(self):
+        ''' Initialize TextClassifier Object '''
+        self.categories = None
+        self.pipeline = None
+        self.data = None
+        self.parameters = None
 
-print("Loading 20 newsgroups dataset for categories:")
-print(categories)
 
-data = fetch_20newsgroups(subset='train', categories=categories)
-print("%d documents" % len(data.filenames))
-print("%d categories" % len(data.target_names))
-print()
+    def set_categories(self, categories_list=None):
+        '''
+        categories_list : list of string categories to include from dataset
+        '''
+        if categories_list == None:
+            self.categories = [
+                'alt.atheism',
+                'talk.religion.misc',
+            ]
+        else:
+            # TODO: Add validation
+            self.categories = categories_list
 
-###############################################################################
-# define a pipeline combining a text feature extractor with a simple
-# classifier
-pipeline = Pipeline([
-    ('vect', CountVectorizer()),
-    ('tfidf', TfidfTransformer()),
-    ('clf', SGDClassifier()),
-])
+    def load_data(self):
+        '''
+        load our dataset, currently hardcoded
+        '''
 
-# uncommenting more parameters will give better exploring power but will
-# increase processing time in a combinatorial way
-parameters = {
-    'vect__max_df': (0.5, 0.75, 1.0),
-    #'vect__max_features': (None, 5000, 10000, 50000),
-    'vect__ngram_range': ((1, 1), (1, 2)),  # unigrams or bigrams
-    #'tfidf__use_idf': (True, False),
-    #'tfidf__norm': ('l1', 'l2'),
-    'clf__alpha': (0.00001, 0.000001),
-    'clf__penalty': ('l2', 'elasticnet'),
-    #'clf__n_iter': (10, 50, 80),
-}
+        if self.categories == None:
+            self.set_categories()
 
-if __name__ == "__main__":
+        print("Loading 20 newsgroups dataset for categories:")
+        print(self.categories)
+
+        self.data = fetch_20newsgroups(subset='train', categories=self.categories)
+        print("%d documents" % len(self.data.filenames))
+        print("%d categories" % len(self.data.target_names))
+        print()
+
+
+    def define_pipeline(self, steps=None):
+        '''
+        define a pipeline combining a text feature extractor with a simple
+        classifier
+
+        steps : List of (name, transform) tuples (implementing fit/transform)
+        that are chained, in the order in which they are chained, with the last
+        object an estimator.
+        '''
+        if steps == None:
+            self.pipeline = Pipeline([
+                ('vect', CountVectorizer()),
+                ('tfidf', TfidfTransformer()),
+                ('clf', SGDClassifier()),
+            ])
+        else:
+            # TODO: add validation
+            self.pipeline = steps
+        print(type(self.pipeline.steps))
+
+    def set_parameters(self, parameters=None):
+        '''
+        Define parameters for the pipeline steps.
+        Uncommenting more parameters will give better exploring power but will
+        increase processing time in a combinatorial way
+        '''
+        if parameters == None:
+            self.parameters = {
+                'vect__max_df': (0.5, 0.75, 1.0),
+                #'vect__max_features': (None, 5000, 10000, 50000),
+                'vect__ngram_range': ((1, 1), (1, 2)),  # unigrams or bigrams
+                #'tfidf__use_idf': (True, False),
+                #'tfidf__norm': ('l1', 'l2'),
+                'clf__alpha': (0.00001, 0.000001),
+                'clf__penalty': ('l2', 'elasticnet'),
+                #'clf__n_iter': (10, 50, 80),
+            }
+        else:
+            # TODO: Add validation
+            self.parameters = parameters
+
+
+def main(verbose=False):
+    '''categories = [
+        'alt.atheism',
+        'talk.religion.misc',
+    ]'''
+    text_classifier = TextClassifier()
+    text_classifier.set_categories()
+    text_classifier.load_data()
+    text_classifier.define_pipeline()
+    text_classifier.set_parameters()
+
     # multiprocessing requires the fork to happen in a __main__ protected
     # block
 
     # find the best parameters for both the feature extraction and the
     # classifier
-    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1, verbose=1)
+    grid_search = GridSearchCV(text_classifier.pipeline, text_classifier.parameters,
+                               n_jobs=-1, verbose=1)
 
-    print("Performing grid search...")
-    print("pipeline:", [name for name, _ in pipeline.steps])
-    print("parameters:")
-    pprint(parameters)
+    if verbose:
+        print("Performing grid search...")
+        print("pipeline:", [name for name, _ in text_classifier.pipeline.steps])
+        print("parameters:")
+        pprint(text_classifier.parameters)
+
     t0 = time()
-    grid_search.fit(data.data, data.target)
-    print("done in %0.3fs" % (time() - t0))
+    grid_search.fit(text_classifier.data.data, text_classifier.data.target)
+    if verbose:
+        print("done in %0.3fs" % (time() - t0))
     print()
 
     print("Best score: %0.3f" % grid_search.best_score_)
     print("Best parameters set:")
     best_parameters = grid_search.best_estimator_.get_params()
-    for param_name in sorted(parameters.keys()):
+    for param_name in sorted(text_classifier.parameters.keys()):
         print("\t%s: %r" % (param_name, best_parameters[param_name]))
+
+
+if __name__ == '__main__':
+    main()
